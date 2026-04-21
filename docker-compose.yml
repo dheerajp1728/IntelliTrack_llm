@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  # LM Studio alternative: Ollama
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    # Pull a model on startup (llama-2-7b)
+    command: sh -c "ollama pull llama-2-7b-chat && ollama serve"
+
+  # Qdrant Vector DB
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+volumes:
+  ollama_data:
+  qdrant_data:

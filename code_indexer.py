@@ -60,11 +60,21 @@ def lmstudio_embed(text: str, model: str = "text-embedding-nomic-embed-text-v1.5
     clean_text = text[:80].replace('\n', ' ')
     print(f"[DEBUG] Embedding text (first 80 chars): {clean_text} ...")
     lm_studio_url = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
+    ollama_url = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
+    
+    # Use Ollama for embeddings (it's available in Docker)
+    # Note: Ollama doesn't have built-in embeddings, so we use LM Studio or skip
+    if lm_studio_url != "http://127.0.0.1:1234":
+        url = f"{lm_studio_url}/v1/embeddings"
+    else:
+        # Fallback: use Ollama if available
+        url = f"{ollama_url}/v1/embeddings"
+    
     payload = {
         "model": model,
         "input": [text]
     }
-    response = requests.post(f"{lm_studio_url}/v1/embeddings", json=payload, timeout=30)
+    response = requests.post(url, json=payload, timeout=30)
     response.raise_for_status()
     emb = response.json()["data"][0]["embedding"]
     print(f"[DEBUG] Got embedding of length {len(emb)}")
