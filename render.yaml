@@ -13,8 +13,8 @@ services:
       - key: LM_STUDIO_URL
         value: "http://localhost:1234"
       - key: QDRANT_URL
-        value: "http://localhost:6333"
+        value: "https://3d48d514-eb0d-4baa-9c5f-5483974c7714.eu-west-2-0.aws.cloud.qdrant.io"
       - key: QDRANT_API_KEY
-        value: ""
+        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6YTA0YzhjNmEtOWZlNy00ZjMyLTljYTItODY2Y2EwYmFlYjEwIn0.112IOKx2ydI2kavy0pv3ouLenFwlPKVlvWsGMILdrzE"
       - key: GITHUB_TOKEN
         value: ""
