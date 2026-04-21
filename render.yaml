@@ -11,8 +11,10 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: LM_STUDIO_URL
-        value: # Add your LM Studio server URL here (e.g., http://your-server:1234)
+        value: "http://localhost:1234"
       - key: QDRANT_URL
-        value: # Add your Qdrant server URL here (e.g., http://your-qdrant:6333)
+        value: "http://localhost:6333"
+      - key: QDRANT_API_KEY
+        value: ""
       - key: GITHUB_TOKEN
-        value: # Optional: GitHub token for rate limiting
+        value: ""
