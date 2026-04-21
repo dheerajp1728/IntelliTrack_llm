@@ -2,10 +2,14 @@ import requests
 import json as pyjson
 import re
 import traceback
+import os
 from typing import List
 
 class LLMAnalyzer:
-    def __init__(self, api_url: str = "http://127.0.0.1:1234/v1/chat/completions"):
+    def __init__(self, api_url: str = None):
+        if api_url is None:
+            lm_studio_url = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
+            api_url = f"{lm_studio_url}/v1/chat/completions"
         self.api_url = api_url
 
     def analyze_tasks_with_summary(self, repo_code: List[str], tasks: List[str]):
