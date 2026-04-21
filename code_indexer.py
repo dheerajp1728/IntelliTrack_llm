@@ -56,7 +56,8 @@ def chunk_text(text: str, chunk_size: int = 300, overlap: int = 50) -> List[str]
 
 def lmstudio_embed(text: str, model: str = "text-embedding-nomic-embed-text-v1.5") -> list:
     import requests
-    print(f"[DEBUG] Embedding text (first 80 chars): {text[:80].replace('\n',' ')} ...")
+    clean_text = text[:80].replace('\n', ' ')
+    print(f"[DEBUG] Embedding text (first 80 chars): {clean_text} ...")
     payload = {
         "model": model,
         "input": [text]
