@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import re
@@ -8,7 +9,16 @@ from code_indexer import sync_repo_to_qdrant, get_relevant_code_for_tasks
 import requests
 import os
 
-app = FastAPI()
+app = FastAPI(title="IntelliTrack LLM Service")
+
+# Add CORS middleware for Render deployment
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ProgressRequest(BaseModel):
     repo_url: str
@@ -23,6 +33,19 @@ class ProgressResponse(BaseModel):
     results: List[TaskProgress]
     progress_percent: int
 
+
+# ─── Health Check Endpoint ────────────────────────────────────────────
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "IntelliTrack LLM Service"}
+
+
+@app.get("/")
+def root():
+    return {"message": "IntelliTrack LLM Service is running", "docs_url": "/docs"}
+
+
+# ─── Helper Functions ────────────────────────────────────────────────
 def check_github_access(repo_url: str, token: Optional[str]) -> bool:
     # Extract owner/repo from URL
     try:
