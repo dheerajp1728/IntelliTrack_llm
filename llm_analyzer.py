@@ -58,7 +58,7 @@ Response MUST be valid JSON only.
         }
         
         try:
-            print(f"[DEBUG] Sending analysis request to LLM (timeout: 300s)...", flush=True)
+            print(f"[DEBUG] Sending analysis request to LLM at {self.api_url}...", flush=True)
             response = requests.post(self.api_url, json=payload, timeout=300)
             
             print(f"[DEBUG] LLM Response Status: {response.status_code}", flush=True)
