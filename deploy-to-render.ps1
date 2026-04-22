@@ -36,18 +36,21 @@ function Create-Service {
         $envVars += @{
             "key"   = $key
             "value" = $Env[$key]
+            "isFile" = $false
         }
     }
     
     $body = @{
-        "name"          = $Name
-        "type"          = "web_service"
-        "image"         = @{
-            "image_url" = $Image
+        "name"           = $Name
+        "type"           = "web_service"
+        "image"          = @{
+            "imageUrl" = $Image
         }
-        "env_vars"      = $envVars
-        "exposed_port"  = $Port
-        "plan_id"       = "free"
+        "envVars"        = $envVars
+        "exposedPort"    = $Port
+        "planId"         = "free"
+        "region"         = "oregon"
+        "notificationEmail" = "test@example.com"
     } | ConvertTo-Json -Depth 10
     
     Write-Host "Creating service: $Name" -ForegroundColor Cyan
@@ -55,27 +58,35 @@ function Create-Service {
     Write-Host "Port: $Port" -ForegroundColor Gray
     
     try {
-        $response = Invoke-WebRequest -Uri "$API_BASE/services" `
-            -Method POST `
-            -Headers $headers `
-            -Body $body -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "$API_BASE/services" -Method POST -Headers $headers -Body $body -ErrorAction Stop
         
         $service = $response.Content | ConvertFrom-Json
-        Write-Host "✅ Created: $($service.name) - ID: $($service.id)" -ForegroundColor Green
+        Write-Host "SUCCESS: Created $($service.name) - ID: $($service.id)" -ForegroundColor Green
         return $service.id
     }
+    catch [System.Net.WebException] {
+        Write-Host "ERROR: Failed to create $Name" -ForegroundColor Red
+        $response = $_.Exception.Response
+        if ($response) {
+            Write-Host "HTTP Status: $($response.StatusCode)" -ForegroundColor Yellow
+            $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
+            $error_content = $reader.ReadToEnd()
+            Write-Host "Response: $error_content" -ForegroundColor Yellow
+        } else {
+            Write-Host "Exception: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+        return $null
+    }
     catch {
-        Write-Host "❌ Failed to create $Name" -ForegroundColor Red
-        Write-Host $_.Exception.Message -ForegroundColor Yellow
+        Write-Host "ERROR: Failed to create $Name" -ForegroundColor Red
+        Write-Host "Exception: $($_.Exception.Message)" -ForegroundColor Yellow
         return $null
     }
 }
 
-# ============================================================================
-# DEPLOY SERVICES
-# ============================================================================
-
-Write-Host "`n🚀 Deploying IntelliTrack to Render...`n" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Deploying IntelliTrack to Render..." -ForegroundColor Yellow
+Write-Host ""
 
 # Service 1: Ollama
 $ollamaEnv = @{
@@ -88,7 +99,6 @@ $qdrantEnv = @{}
 $qdrantId = Create-Service -Name "intellitrack-qdrant" -Image "qdrant/qdrant:latest" -Port 6333 -Env $qdrantEnv
 
 # Service 3: FastAPI
-# Note: You'll need to update these URLs once services are deployed
 $fastAPIEnv = @{
     "OLLAMA_URL"        = "http://intellitrack-ollama.onrender.com:11434"
     "QDRANT_URL"        = "http://intellitrack-qdrant.onrender.com:6333"
@@ -97,14 +107,14 @@ $fastAPIEnv = @{
 }
 $fastAPIId = Create-Service -Name "intellitrack-llm" -Image "docker.io/deeru2001/intellitrack-llm:latest" -Port 8000 -Env $fastAPIEnv
 
-# ============================================================================
-# SUMMARY
-# ============================================================================
+Write-Host ""
+Write-Host "Deployment Summary:" -ForegroundColor Yellow
+Write-Host ""
 
-Write-Host "`n📋 Deployment Summary:`n" -ForegroundColor Yellow
+if ($ollamaId) { Write-Host "SUCCESS: Ollama Service ID: $ollamaId" }
+if ($qdrantId) { Write-Host "SUCCESS: Qdrant Service ID: $qdrantId" }
+if ($fastAPIId) { Write-Host "SUCCESS: FastAPI Service ID: $fastAPIId" }
 
-if ($ollamaId) { Write-Host "✅ Ollama Service ID: $ollamaId" }
-if ($qdrantId) { Write-Host "✅ Qdrant Service ID: $qdrantId" }
-if ($fastAPIId) { Write-Host "✅ FastAPI Service ID: $fastAPIId" }
-
-Write-Host "`n⏳ Services are deploying. Monitor at https://dashboard.render.com`n" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Services are deploying. Monitor at https://dashboard.render.com" -ForegroundColor Cyan
+Write-Host ""
