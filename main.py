@@ -113,7 +113,27 @@ def get_progress(data: ProgressRequest):
         
         # Step 2: Initialize Qdrant
         print("\n[STEP 2/7] 🗄️  Initializing Qdrant vector database...", flush=True)
-        qdrant = QdrantIndexer()
+        
+        # Parse Qdrant URL from environment or use defaults
+        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        if qdrant_url.startswith("http://"):
+            qdrant_url = qdrant_url.replace("http://", "")
+        elif qdrant_url.startswith("https://"):
+            qdrant_url = qdrant_url.replace("https://", "")
+        
+        # Extract host and port
+        if ":" in qdrant_url:
+            qdrant_host, qdrant_port = qdrant_url.rsplit(":", 1)
+            try:
+                qdrant_port = int(qdrant_port)
+            except:
+                qdrant_host = qdrant_url
+                qdrant_port = 6333
+        else:
+            qdrant_host = qdrant_url
+            qdrant_port = 6333
+        
+        qdrant = QdrantIndexer(host=qdrant_host, port=qdrant_port)
         print("✅ Qdrant initialized", flush=True)
         
         # Step 3: Sync Repository

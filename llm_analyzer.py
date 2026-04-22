@@ -9,16 +9,15 @@ class LLMAnalyzer:
     def __init__(self, api_url: str = None):
         if api_url is None:
             # Support both LM Studio and Ollama
-            lm_studio_url = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
             ollama_url = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
+            lm_studio_url = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
             
-            # If LM_STUDIO_URL is set to a real endpoint, use it
-            # Otherwise use Ollama
+            # Use Ollama by default (supports OpenAI-compatible API)
+            api_url = f"{ollama_url}/v1/chat/completions"
+            
+            # Fallback to LM Studio if set
             if lm_studio_url != "http://127.0.0.1:1234":
                 api_url = f"{lm_studio_url}/v1/chat/completions"
-            else:
-                # Use Ollama (compatible with OpenAI format)
-                api_url = f"{ollama_url}/v1/chat/completions"
         
         self.api_url = api_url
         print(f"[LLMAnalyzer] Using API endpoint: {api_url}", flush=True)

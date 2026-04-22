@@ -1,20 +1,43 @@
 services:
+  # Service 1: Ollama (LLM Server)
+  - type: web
+    name: intellitrack-ollama
+    image: ollama/ollama:latest
+    plan: free
+    port: 11434
+    dockerCommand: ollama serve
+    envVars:
+      - key: OLLAMA_HOST
+        value: "0.0.0.0:11434"
+
+  # Service 2: Qdrant (Vector Database)
+  - type: web
+    name: intellitrack-qdrant
+    image: qdrant/qdrant:latest
+    plan: free
+    port: 6333
+    envVars:
+      - key: QDRANT_API_KEY
+        value: ""
+    volumes:
+      - name: qdrant-storage
+        mountPath: /qdrant/storage
+
+  # Service 3: FastAPI (IntelliTrack LLM Service)
   - type: web
     name: intellitrack-llm
-    runtime: python
+    image: docker.io/deeru2001/intellitrack-llm:latest
     plan: free
-    pythonVersion: 3.11.8
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+    port: 8000
     healthCheckPath: /health
     envVars:
       - key: PYTHONUNBUFFERED
         value: "1"
-      - key: LM_STUDIO_URL
-        value: "http://localhost:1234"
+      - key: OLLAMA_URL
+        value: "http://intellitrack-ollama.onrender.com:11434"
       - key: QDRANT_URL
-        value: "https://3d48d514-eb0d-4baa-9c5f-5483974c7714.eu-west-2-0.aws.cloud.qdrant.io"
+        value: "http://intellitrack-qdrant.onrender.com:6333"
       - key: QDRANT_API_KEY
-        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6YTA0YzhjNmEtOWZlNy00ZjMyLTljYTItODY2Y2EwYmFlYjEwIn0.112IOKx2ydI2kavy0pv3ouLenFwlPKVlvWsGMILdrzE"
+        value: ""
       - key: GITHUB_TOKEN
         value: ""
