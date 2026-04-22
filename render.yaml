@@ -2,7 +2,7 @@ services:
   # Service 1: Ollama (LLM Server)
   - type: web
     name: intellitrack-ollama
-    image: ollama/ollama:latest
+    image: deeru2001/ollama:latest
     plan: free
     port: 11434
     dockerCommand: ollama serve
@@ -13,7 +13,7 @@ services:
   # Service 2: Qdrant (Vector Database)
   - type: web
     name: intellitrack-qdrant
-    image: qdrant/qdrant:latest
+    image: deeru2001/qdrant:latest
     plan: free
     port: 6333
     envVars:
