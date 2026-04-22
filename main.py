@@ -115,25 +115,32 @@ def get_progress(data: ProgressRequest):
         print("\n[STEP 2/7] 🗄️  Initializing Qdrant vector database...", flush=True)
         
         # Parse Qdrant URL from environment or use defaults
-        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-        if qdrant_url.startswith("http://"):
-            qdrant_url = qdrant_url.replace("http://", "")
-        elif qdrant_url.startswith("https://"):
-            qdrant_url = qdrant_url.replace("https://", "")
+        qdrant_url_env = os.getenv("QDRANT_URL", "http://localhost:6333")
         
-        # Extract host and port
-        if ":" in qdrant_url:
-            qdrant_host, qdrant_port = qdrant_url.rsplit(":", 1)
-            try:
-                qdrant_port = int(qdrant_port)
-            except:
-                qdrant_host = qdrant_url
-                qdrant_port = 6333
+        # Check if it's a remote URL (contains http/https) or local host:port
+        if qdrant_url_env.startswith("http://") or qdrant_url_env.startswith("https://"):
+            # Remote URL mode
+            qdrant = QdrantIndexer(url=qdrant_url_env)
         else:
-            qdrant_host = qdrant_url
-            qdrant_port = 6333
-        
-        qdrant = QdrantIndexer(host=qdrant_host, port=qdrant_port)
+            # Local host:port mode
+            if qdrant_url_env.startswith("http://"):
+                qdrant_url_env = qdrant_url_env.replace("http://", "")
+            elif qdrant_url_env.startswith("https://"):
+                qdrant_url_env = qdrant_url_env.replace("https://", "")
+            
+            # Extract host and port
+            if ":" in qdrant_url_env:
+                qdrant_host, qdrant_port = qdrant_url_env.rsplit(":", 1)
+                try:
+                    qdrant_port = int(qdrant_port)
+                except:
+                    qdrant_host = qdrant_url_env
+                    qdrant_port = 6333
+            else:
+                qdrant_host = qdrant_url_env
+                qdrant_port = 6333
+            
+            qdrant = QdrantIndexer(host=qdrant_host, port=qdrant_port)
         print("✅ Qdrant initialized", flush=True)
         
         # Step 3: Sync Repository

@@ -9,8 +9,17 @@ import warnings
 warnings.filterwarnings("ignore", message=".*Qdrant client version.*")
 
 class QdrantIndexer:
-    def __init__(self, collection_name="repo_code", host="localhost", port=6333, vector_size=768):
-        self.client = QdrantClient(host=host, port=port)
+    def __init__(self, collection_name="repo_code", host="localhost", port=6333, vector_size=768, url=None):
+        # Support both URL mode (for remote/Render) and host:port mode (for local)
+        if url:
+            # Use URL mode for remote Qdrant (HTTP API)
+            print(f"[QdrantIndexer] Connecting via URL: {url}", flush=True)
+            self.client = QdrantClient(url=url)
+        else:
+            # Use host:port mode for local connections
+            print(f"[QdrantIndexer] Connecting to {host}:{port}", flush=True)
+            self.client = QdrantClient(host=host, port=port)
+        
         self.collection_name = collection_name
         self.vector_size = vector_size
         self._ensure_collection()

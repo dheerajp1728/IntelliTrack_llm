@@ -13,11 +13,20 @@ class LLMAnalyzer:
             lm_studio_url = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
             
             # Use Ollama by default (supports OpenAI-compatible API)
-            api_url = f"{ollama_url}/v1/chat/completions"
+            # Handle both URL format (https://domain.com) and host:port format (localhost:11434)
+            if ollama_url.startswith("http://") or ollama_url.startswith("https://"):
+                # Already a full URL, just append the endpoint path
+                api_url = f"{ollama_url}/v1/chat/completions"
+            else:
+                # Host:port format, construct URL
+                api_url = f"http://{ollama_url}/v1/chat/completions" if "://" not in ollama_url else f"{ollama_url}/v1/chat/completions"
             
-            # Fallback to LM Studio if set
+            # Fallback to LM Studio if set and different
             if lm_studio_url != "http://127.0.0.1:1234":
-                api_url = f"{lm_studio_url}/v1/chat/completions"
+                if lm_studio_url.startswith("http://") or lm_studio_url.startswith("https://"):
+                    api_url = f"{lm_studio_url}/v1/chat/completions"
+                else:
+                    api_url = f"http://{lm_studio_url}/v1/chat/completions"
         
         self.api_url = api_url
         print(f"[LLMAnalyzer] Using API endpoint: {api_url}", flush=True)
