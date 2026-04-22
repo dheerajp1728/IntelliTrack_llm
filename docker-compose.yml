@@ -10,8 +10,8 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
-    # Pull a model on startup (llama-2-7b)
-    command: sh -c "ollama pull llama-2-7b-chat && ollama serve"
+    # Run Ollama server (model can be pulled separately)
+    command: serve
 
   # Qdrant Vector DB
   qdrant:
