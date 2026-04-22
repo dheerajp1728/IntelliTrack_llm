@@ -2,9 +2,9 @@ services:
   # Service 1: Ollama (LLM Server)
   - type: web
     name: intellitrack-ollama
-    image: deeru2001/ollama:latest
+    dockerImage: deeru2001/ollama:latest
     plan: free
-    exposedPort: 11434
+    port: 11434
     dockerCommand: ollama serve
     envVars:
       - key: OLLAMA_HOST
@@ -13,9 +13,9 @@ services:
   # Service 2: Qdrant (Vector Database)
   - type: web
     name: intellitrack-qdrant
-    image: deeru2001/qdrant:latest
+    dockerImage: deeru2001/qdrant:latest
     plan: free
-    exposedPort: 6333
+    port: 6333
     envVars:
       - key: QDRANT_API_KEY
         value: ""
@@ -23,9 +23,9 @@ services:
   # Service 3: FastAPI (IntelliTrack LLM Service)
   - type: web
     name: intellitrack-llm
-    image: deeru2001/intellitrack-llm:latest
+    dockerImage: deeru2001/intellitrack-llm:latest
     plan: free
-    exposedPort: 8000
+    port: 8000
     healthCheckPath: /health
     envVars:
       - key: PYTHONUNBUFFERED
