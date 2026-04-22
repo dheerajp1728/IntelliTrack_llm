@@ -1,13 +1,10 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import re
-from llm_analyzer import LLMAnalyzer
-from qdrant_indexer import QdrantIndexer
-from code_indexer import sync_repo_to_qdrant, get_relevant_code_for_tasks
 import requests
 import os
+import re
 
 app = FastAPI(title="IntelliTrack LLM Service")
 
@@ -75,127 +72,98 @@ def get_recent_commits(repo_url: str, token: Optional[str]) -> List[str]:
         return [commit["commit"]["message"] for commit in resp.json()]
     return []
 
-def analyze_task_progress(task: str, commit_messages: List[str], code_snippets: List[str]) -> str:
-    # Extract keywords (words longer than 3 chars, ignore common stopwords)
-    stopwords = {"with", "from", "that", "this", "have", "been", "will", "for", "the", "and", "not", "add", "make", "more", "than", "into", "only", "also", "are", "all", "but", "can", "has", "was", "use", "using", "able", "each", "per", "now", "new", "set", "get", "put", "let", "out", "our", "your", "their", "about", "over", "such", "very", "some", "just", "like", "done", "fix", "test", "file", "code", "repo", "main", "step", "task", "docs", "doc", "docs", "readme"}
-    keywords = [w.lower() for w in re.findall(r'\w+', task) if len(w) > 3 and w.lower() not in stopwords]
-    # Check commit messages
+def analyze_task_progress(task: str, commit_messages: List[str]) -> str:
+    """Analyze task progress based on commit messages"""
+    stopwords = {"with", "from", "that", "this", "have", "been", "will", "for", "the", "and", "not", 
+        "add", "make", "more", "than", "into", "only", "also", "are", "all", "but", "can", 
+        "has", "was", "use", "using", "able", "each", "per", "now", "new", "set", "get", 
+        "put", "let", "out", "our", "your", "their", "about", "over", "such", "very", 
+        "some", "just", "like", "done", "fix", "test", "file", "code", "repo", "main", 
+        "step", "task", "docs", "doc", "readme"}
+    
+    keywords = [w.lower() for w in re.findall(r'\w+', task) 
+        if len(w) > 3 and w.lower() not in stopwords]
+    
+    if not keywords:
+        keywords = [w.lower() for w in re.findall(r'\w+', task)]
+    
+    completed_count = 0
+    in_progress_count = 0
+    
     for msg in commit_messages:
         msg_lower = msg.lower()
         if any(kw in msg_lower for kw in keywords):
-            if any(word in msg_lower for word in ["done", "complete", "finished", "close"]):
-                return "done"
-            return "in progress"
-    # Check code content
-    for code in code_snippets:
-        code_lower = code.lower()
-        if any(kw in code_lower for kw in keywords):
-            return "in progress"
-    return "not started"
+            if any(word in msg_lower for word in ["done", "complete", "finished", "close", "resolved", "fixed"]):
+                completed_count += 1
+            else:
+                in_progress_count += 1
+    
+    if completed_count > 0:
+        return "done - commits found"
+    elif in_progress_count > 0:
+        return "in progress - work in commits"
+    else:
+        all_commits = " ".join(commit_messages).lower()
+        for kw in keywords:
+            if kw in all_commits:
+                return "in progress - mentioned in history"
+        return "not started - no references found"
 
 @app.post("/progress", response_model=ProgressResponse)
 def get_progress(data: ProgressRequest):
-    import time
+    """Analyze repository progress without Qdrant/Ollama"""
     try:
-        start_time = time.time()
-        
         print("\n" + "="*70, flush=True)
-        print("📊 PROGRESS ANALYSIS REQUEST STARTED", flush=True)
+        print("📊 SIMPLIFIED PROGRESS ANALYSIS", flush=True)
         print("="*70, flush=True)
         print(f"Repository: {data.repo_url}", flush=True)
-        print(f"GitHub Token: {'Yes' if data.github_token else 'No'}", flush=True)
         
         # Step 1: Check GitHub Access
-        print("\n[STEP 1/7] 🔍 Checking GitHub repository access...", flush=True)
+        print("\n[STEP 1] 🔍 Checking GitHub repository access...", flush=True)
         if not check_github_access(data.repo_url, data.github_token):
             raise HTTPException(status_code=400, detail="Cannot access repository. Check URL or token.")
         print("✅ Repository access verified", flush=True)
         
-        # Step 2: Initialize Qdrant
-        print("\n[STEP 2/7] 🗄️  Initializing Qdrant vector database...", flush=True)
-        
-        # Parse Qdrant URL from environment or use defaults
-        qdrant_url_env = os.getenv("QDRANT_URL", "http://localhost:6333")
-        
-        # Check if it's a remote URL (contains http/https) or local host:port
-        if qdrant_url_env.startswith("http://") or qdrant_url_env.startswith("https://"):
-            # Remote URL mode
-            qdrant = QdrantIndexer(url=qdrant_url_env)
+        # Step 2: Get Recent Commits
+        print("\n[STEP 2] 📥 Fetching recent commits...", flush=True)
+        commits = get_recent_commits(data.repo_url, data.github_token)
+        if commits:
+            print(f"✅ Retrieved {len(commits)} recent commits", flush=True)
+            for i, commit in enumerate(commits[:3], 1):
+                preview = commit[:60] if len(commit) > 60 else commit
+                print(f"   {i}. {preview}...", flush=True)
         else:
-            # Local host:port mode
-            if qdrant_url_env.startswith("http://"):
-                qdrant_url_env = qdrant_url_env.replace("http://", "")
-            elif qdrant_url_env.startswith("https://"):
-                qdrant_url_env = qdrant_url_env.replace("https://", "")
-            
-            # Extract host and port
-            if ":" in qdrant_url_env:
-                qdrant_host, qdrant_port = qdrant_url_env.rsplit(":", 1)
-                try:
-                    qdrant_port = int(qdrant_port)
-                except:
-                    qdrant_host = qdrant_url_env
-                    qdrant_port = 6333
-            else:
-                qdrant_host = qdrant_url_env
-                qdrant_port = 6333
-            
-            qdrant = QdrantIndexer(host=qdrant_host, port=qdrant_port)
-        print("✅ Qdrant initialized", flush=True)
+            print("⚠️  No commits found", flush=True)
         
-        # Step 3: Sync Repository
-        print("\n[STEP 3/7] 📥 Fetching and indexing repository code...", flush=True)
-        sync_repo_to_qdrant(data.repo_url, data.github_token, qdrant)
-        elapsed = time.time() - start_time
-        print(f"✅ Repository indexed successfully ({elapsed:.1f}s elapsed)", flush=True)
-        
-        # Step 4: Parse Tasks
-        print("\n[STEP 4/7] 📋 Parsing task list...", flush=True)
+        # Step 3: Parse Tasks
+        print("\n[STEP 3] 📋 Parsing task list...", flush=True)
         tasks = [t.strip() for t in data.tasks.replace(';', '\n').splitlines() if t.strip()]
         print(f"✅ Found {len(tasks)} tasks:", flush=True)
         for i, task in enumerate(tasks, 1):
             print(f"   {i}. {task}", flush=True)
         
-        # Step 5: Search for Relevant Code
-        print("\n[STEP 5/7] 🔎 Searching for relevant code in repository...", flush=True)
-        code_blocks = get_relevant_code_for_tasks(tasks, qdrant, top_k=5)
-        elapsed = time.time() - start_time
-        print(f"✅ Retrieved {len(code_blocks)} code blocks ({elapsed:.1f}s elapsed)", flush=True)
+        # Step 4: Analyze Each Task
+        print("\n[STEP 4] 🔎 Analyzing task progress...", flush=True)
+        results = []
+        for task in tasks:
+            progress = analyze_task_progress(task, commits)
+            results.append(TaskProgress(task=task, progress=progress))
+            print(f"   ✓ {task}: {progress}", flush=True)
         
-        # Step 6: LLM Analysis
-        print("\n[STEP 6/7] 🤖 Analyzing with LLM (this may take 30-60 seconds)...", flush=True)
-        print("   ⏳ Waiting for LLM response...", flush=True)
-        llm = LLMAnalyzer()
-        llm_start = time.time()
-        progress_summaries, percent_done = llm.analyze_tasks_with_summary(code_blocks, tasks)
-        llm_elapsed = time.time() - llm_start
-        print(f"✅ LLM analysis complete ({llm_elapsed:.1f}s)", flush=True)
+        # Calculate overall progress
+        completed = sum(1 for r in results if "done" in r.progress.lower())
+        progress_percent = int((completed / len(results) * 100) if results else 0)
         
-        # Step 7: Format Results
-        print("\n[STEP 7/7] 📦 Formatting results...", flush=True)
-        results = [TaskProgress(task=task, progress=summary) for task, summary in zip(tasks, progress_summaries)]
-        print("✅ Results formatted", flush=True)
-        
-        # Final Summary
-        total_elapsed = time.time() - start_time
         print("\n" + "="*70, flush=True)
-        print("✅ ANALYSIS COMPLETE", flush=True)
-        print("="*70, flush=True)
-        print(f"📈 Overall Progress: {percent_done}%", flush=True)
-        print(f"⏱️  Total Time: {total_elapsed:.1f}s", flush=True)
-        print(f"   - GitHub/Qdrant: {elapsed - llm_elapsed:.1f}s", flush=True)
-        print(f"   - LLM Analysis:   {llm_elapsed:.1f}s", flush=True)
-        print(f"📊 Results:", flush=True)
-        for i, (task, summary) in enumerate(zip(tasks, progress_summaries), 1):
-            print(f"   {i}. {task}", flush=True)
-            print(f"      └─ {summary}", flush=True)
+        print(f"📈 Overall Progress: {progress_percent}%", flush=True)
         print("="*70 + "\n", flush=True)
         
-        return {"results": results, "progress_percent": percent_done}
+        return ProgressResponse(results=results, progress_percent=progress_percent)
+    
     except HTTPException:
         raise
     except Exception as e:
-        print(f"\n❌ [ERROR] {e}", flush=True)
+        print(f"\n❌ Error: {str(e)}", flush=True)
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
